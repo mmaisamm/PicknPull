@@ -1,0 +1,11 @@
+import matplotlib.pyplot as plt
+import pandas
+
+files = 'combinedgots.txt'
+p = pandas.read_csv(files,)
+
+x = p.iloc[:,0:1]
+y = p.iloc[:,1:2]
+
+plt.scatter(x, y)
+plt.show
