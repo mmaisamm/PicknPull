@@ -1,0 +1,77 @@
+# user input for file to pull information from
+mfile = raw_input("Input file:")
+# open file and read
+name = []
+anno = []
+want1 = []
+want2 = []
+gots1 = []
+gots2 = []
+have = []
+with open(mfile, 'r') as s:
+        lines = s.readlines()
+# read line by line not containing Header/Metadata
+for line in lines:
+        if line[0] != '#':
+# split line by tab and choose 7th index
+            info = line.split('\t')[7]
+# split 7th index by ;
+            annotations = info.split(';')
+            for annotation in annotations:
+# split each annotation by =
+# input name of annotation into name and annotation into annotation
+                if '=' in annotation:
+                    each = annotation.split('=')
+                    cleanName = each[0]
+                    cleanName = cleanName.strip()
+                    name.append(cleanName)
+                    cleanAnno = each[1]
+                    cleanAnno = cleanAnno.strip()
+                    anno.append(cleanAnno)
+
+def infoSplitter(vcfLine):
+    # Unique diseases
+    name = []
+    anno = []
+
+    info = vcfLine.split('\t')[7]
+    annotations = info.split(';')
+    for annotation in annotations:
+        if '=' in annotation:
+            each = annotation.split('=')
+            cleanName = each[0]
+            cleanName = cleanName.strip()
+            name.append(cleanName)
+            cleanAnno = each[1]
+            cleanAnno = cleanAnno.strip()
+            anno.append(cleanAnno)
+
+    return anno, name
+# transforms list into set
+nameset = set(name)
+# print set and ask for annotation list
+print nameset
+want1 = raw_input("List annotation wanted from the list above:")
+want2 = raw_input("List annotation wanted from the list above:")
+
+
+for line in lines:
+    if line[0] != '#':
+        annos, names = infoSplitter(line)
+        for index, name in enumerate(names):
+            if name == want1:
+                gots1.append(annos[index])
+            elif name == want2:
+                gots2.append(annos[index].split(',')[2])
+
+    
+# take annotation listed by user and create data file with that data separated by comma
+filename = 'gots1'
+with open(filename, "w") as currentF:
+    currentF.write(','.join(gots1) + '\n')
+
+filename = 'gots2'
+with open(filename, "w") as currentF1:
+    currentF1.write(','.join(gots2) + '\n')
+
+zip(gots1, gots2)
