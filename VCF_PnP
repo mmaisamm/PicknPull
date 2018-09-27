@@ -1,5 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep 17 10:07:58 2018
+
+@author: jafrisa
+"""
 # user input for file to pull information from
-mfile = raw_input("Input file:")
+mfile = raw_input("VCF with path ending in .vcf :")
+number = raw_input("How many annotations would you like to PicknPull?")
 # open file and read
 name = []
 anno = []
@@ -7,7 +14,9 @@ want1 = []
 want2 = []
 gots1 = []
 gots2 = []
-have = []
+gots3 = []
+wants = []
+gots = []
 with open(mfile, 'r') as s:
         lines = s.readlines()
 # read line by line not containing Header/Metadata
@@ -53,20 +62,46 @@ nameset = set(name)
 print nameset
 want1 = raw_input("List annotation wanted from the list above:")
 want2 = raw_input("List annotation wanted from the list above:")
+#wants = raw_input("List the " + number + " annotations wanted separated by commas:")
+
+#i = 0 
+#for line in lines:
+#    if line[0] != '#':
+#        annos, names = infoSplitter(line)
+#        for index, name in enumerate(names):
+#            if name == wants[i]:
+#                gots.append(wants[i])
+#                i = i + 1
+#print wants
+#print gots
 
 
+# check raw_input and add information to lists: gots1 and gots2 
 for line in lines:
     if line[0] != '#':
         annos, names = infoSplitter(line)
         for index, name in enumerate(names):
             if name == want1:
                 gots1.append(annos[index])
-            elif name == want2:
+            elif 'rvis' == want2:
                 gots2.append(annos[index].split(',')[2])
+            if name == want2:
+                gots2.append(annos[index])
 
-    
+for line in lines:
+        if line[0] != '#':
+# split line by tab and choose 7th index
+            Chrom = line.split('\t')[0]
+            Pos = line.split('\t')[1]
+            gots3.append(Chrom + ':' + Pos)
 # take annotation listed by user and create data file with that data separated by comma
 filename = 'gots1'
+
+# combine data from 3 lists: user input 1, user input 2, Chrom:Pos
+alll = map(list, zip(gots3, gots1, gots2))
+al = str(alll)
+
+# write files
 with open(filename, "w") as currentF:
     currentF.write(','.join(gots1) + '\n')
 
@@ -74,4 +109,11 @@ filename = 'gots2'
 with open(filename, "w") as currentF1:
     currentF1.write(','.join(gots2) + '\n')
 
-zip(gots1, gots2)
+filename = 'gots3'
+with open(filename, "w") as currentF1:
+    currentF1.write(','.join(gots3) + '\n')
+
+filename = 'gotsem'
+with open(filename, "w") as currentF1:
+    currentF1.write(''.join(al) + '\n')
+
