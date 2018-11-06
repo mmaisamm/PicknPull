@@ -1,0 +1,230 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Sep 17 10:07:58 2018
+
+@author: jafrisa and brownas
+"""
+import numpy as np
+import argparse
+
+def parseArguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input", help="user input for wants", default=False, action='store_true', required=False)
+    parser.add_argument("-o", "--optional_input", help="user input for optional annotations", default=False, action='store_true', required=False)
+    parser.add_argument("-p", "--prefix", help="optional prefix for outputfile", type=str, default='', required=False)
+    parser.add_argument("-f", "--file", help="user input for file to pull variants from", default=False, action='store_true', required=False)
+    args = parser.parse_args()
+    return args
+# user input for file to pull information from
+
+# open file and read
+
+def printOptions(lines):
+    name = []
+    anno = []
+    ## read line by line not containing Header/Metadata
+    for line in lines:
+            if line[0] != '#':
+    ## split line by tab and choose 7th index
+                info = line.split('\t')[7]
+    ## split 7th index by ;
+                annotations = info.split(';')
+                for annotation in annotations:
+    ## split each annotation by =
+    ## input name of annotation into name and annotation into annotation
+                    if '=' in annotation:
+                        each = annotation.split('=')
+                        cleanName = each[0]
+                        cleanName = cleanName.strip()
+                        name.append(cleanName)
+                        cleanAnno = each[1]
+                        cleanAnno = cleanAnno.strip()
+                        anno.append(cleanAnno)
+    # transforms list into set
+    nameset = set(name)
+    # print set and ask for annotation list
+    print(sorted(nameset, key=lambda s: s.lower()))
+    return
+
+def infoSplitter(vcfLine):
+    # Unique diseases
+    names = []
+    annos = []
+
+    info = vcfLine.split('\t')[7]
+    annotations = info.split(';')
+    for annotation in annotations:
+        if '=' in annotation:
+            each = annotation.split('=')
+            cleanName = each[0]
+            cleanName = cleanName.strip()
+            names.append(cleanName)
+            cleanAnno = each[1]
+            cleanAnno = cleanAnno.strip()
+            annos.append(cleanAnno)
+    for index, name in enumerate(names):
+        if name == 'Haploinsufficiency':
+            hap = annos[index]
+            hap = hap.replace('%','')
+            hap = [float(i) for i in hap.split(',')]
+            hapMed = np.median(hap)
+            annos[index] = str(hapMed)
+    for index, name in enumerate(names):
+        if name == 'ljb2_pp2hdiv':
+            pp = annos[index]
+            pp = pp.split(',')[0]
+            annos[index] = str(pp)
+
+    return annos, names
+
+def getScores(line, annos, names, wants):
+    scores = []
+    position = ''
+
+    # Get the position (chromosome and position)
+    Chrom = line.split('\t')[0]
+    Pos = line.split('\t')[1]
+    position = str(Chrom + ':' + Pos)
+
+    for i in range(0, len(wants) +1):
+        scores.append([])
+
+    scores[0].append(position)
+    for i, want in enumerate(wants):
+        if want not in names:
+            return None
+        else:
+            for index, name in enumerate(names):
+                if name == want:
+                    if annos[index] == ".":
+                        return None
+                    else:
+                        gotWant = annos[index]
+                        # i + 1 is needed because position is in the first index. wants are after
+                        scores[i+1].append(gotWant)
+    return scores
+
+def getOptionalScores(line, annos, names, wants):
+    scores = []
+
+    for i in range(0, len(wants)):
+        scores.append([])
+
+    for i, want in enumerate(wants):
+        if want not in names:
+            scores[i].append("NA")
+        else:
+            for index, name in enumerate(names):
+                if name == want:
+                    if annos[index] == ".":
+                        scores[i].append("NA")
+                    else:
+                        scores[i].append(annos[index])
+    return scores
+
+def getWants(lines):
+    printOptions(lines)
+    masterWants = []
+    print ""
+    print "Type 'done' to quit"
+    userinput = ""
+    while userinput != "done":
+        userinput = raw_input("Which required annotation do you want? ('done' to quit): ")
+        if userinput == "done":
+            return masterWants
+        else:
+            masterWants.append(userinput)
+        
+    return masterWants
+
+def getOptionalWants(lines):
+    printOptions(lines)
+    optionalWants = []
+    print ""
+    print "Type 'done' to quit"
+    userinput = ""
+    while userinput != "done":
+        userinput = raw_input("Which optional annotation do you want to add? ('done' to quit): ")
+        if userinput == "done":
+            return optionalWants
+        else:
+            optionalWants.append(userinput)
+        
+    return optionalWants
+
+def getGots(lines, masterWants, optionalWants):
+    masterGots = []
+    scores_optional = []
+    # Add one to length of master wants because position is also included
+    listlength = len(masterWants) + 1 + len(optionalWants)
+    for i in range(0, listlength):
+        masterGots.append([])
+
+    for line in lines:
+        if line[0] != '#':
+            annos, names = infoSplitter(line)
+            scores = getScores(line, annos, names, masterWants)
+            if scores != None:
+                if optionalWants: # this returns true if optionalWants is NOT an empty list.
+                    scores_optional = getOptionalScores(line, annos, names, optionalWants)
+                for i in range(0, len(masterWants) + 1):
+                    masterGots[i].append(scores[i][0])
+                for j in range(len(masterWants) + 1, listlength):
+                    masterGots[j].append(scores_optional[j-(len(masterWants) + 1)][0])
+    
+    return masterGots
+
+def writeOutput(masterGots, masterWants, prefix, optionalWants):
+    poslist = ["chrom:pos"]
+    headerlist = poslist + masterWants + optionalWants
+    basefilename = "AllAnnos.csv"
+    filename = prefix + basefilename
+    outlist = []
+    for i in range(0, len(masterGots[0])):
+        outlist.append([item[i] for item in masterGots])
+
+    with open(filename, "w") as ofile:
+        ofile.write(','.join(headerlist) + '\n')
+        initial = map(','.join, outlist)
+        ofile.write('\n'.join(initial) + '\n')
+    return
+
+def main(args):
+    mfile  = 'smushed_VACandChris5.vcf'
+    if args.file:
+        mfile = raw_input("VCF with path ending in .vcf : \n")
+
+    prefix = ''
+    prefix = args.prefix
+    with open(mfile, 'r') as s:
+        lines = s.readlines()
+    masterWants = ['ljb2_pp2hdiv', 'rvis_percentile']
+    # set optionalWants to an empty list [] and it will be ignored. 
+#    optionalWants = []
+    optionalWants = ['ChrisRank', 'VACRank','ExGeneSPheno', 'cadd_phred']
+    if optionalWants: #true if list is not empty
+        print "your optional annotations are: "
+        print optionalWants
+
+#    master1Wants = ['ChrisRank', 'ExGeneSPheno', 'Haploinsufficiency', 'cadd_phred', 'eigen_PC_phred', 'ljb2_pp2hdiv', 'mapability_35', 'mis_z', 'rvis_percentile', 'gerp_rs', 'lof_z', 'pLi', 'Founders_AF']
+    
+    if args.input:
+        masterWants = getWants(lines)
+        
+    if args.optional_input:
+        optionalWants = getOptionalWants(lines)
+    
+    print "your required annotations are: "
+    print masterWants
+    
+    masterGots = getGots(lines, masterWants, optionalWants)
+    writeOutput(masterGots, masterWants, prefix, optionalWants)
+
+
+
+if __name__ == '__main__':
+    arguments = parseArguments()
+    main(arguments)
+
+
+
